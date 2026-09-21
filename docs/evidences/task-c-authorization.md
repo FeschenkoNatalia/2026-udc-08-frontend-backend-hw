@@ -47,7 +47,7 @@ expect(JSON.stringify(res.body)).not.toContain("пароль від сейфа")
     → expected 404 "Not Found", got 200 "OK"
 × cross-user refusals ship no data > a note that does not exist is
   indistinguishable from someone else's
-Tests  2 failed | 81 passed (83)
+Tests  2 failed | 85 passed (87)
 ```
 
 **Дев'ять засіяних тестів були зелені й з відкритою дірою.**
@@ -125,5 +125,5 @@ Guard прибирався по одному в пісочниці — чоти�
 [14](./screenshots/14-cross-user-writes.png) PATCH / DELETE / POST чужим користувачем — відмова, дані Тараса без змін ·
 [15](./screenshots/15-archive-read-path.png) архів Олі не бачить архіву Тараса ·
 [16](./screenshots/16-authentication.png) без заголовка, `999`, `0x2` → 401 ·
-[17](./screenshots/17-test-red-with-hole.png) діру повернуто в копії `app/` — два тести червоні; правку прибрано — 83 зелених ·
+[17](./screenshots/17-test-red-with-hole.png) діру повернуто в копії `app/` — два тести червоні; діру знову закрито — усі 87 зелені ·
 [07](./screenshots/07-other-user.png) в інтерфейсі Тарас бачить лише своє

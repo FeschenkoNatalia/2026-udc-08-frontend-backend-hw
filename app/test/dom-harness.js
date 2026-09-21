@@ -150,12 +150,19 @@ export function installServer(notes = []) {
     postStatus: 201,
     deleteStatus: 204,
     patchStatus: 200,
+    // 0 stands for "the network is gone": fetch rejects instead of answering.
     getStatus: 200,
-    // With holdGets on, list replies wait in `held` until the test releases
-    // them — in whatever order it wants, which is how a race is reproduced.
+    // With holdGets / holdPatches on, those replies wait in `held` until the
+    // test releases them — in whatever order it wants, which is how a race is
+    // reproduced.
     holdGets: false,
+    holdPatches: false,
     held: [],
   };
+  // A reply is built when it is released, not when it is held: a rejected
+  // promise nobody awaits yet would count as an unhandled rejection.
+  const later = (hold, answer) =>
+    hold ? new Promise((resolve) => server.held.push(() => resolve(answer()))) : answer();
 
   globalThis.fetch = async (path, init = {}) => {
     const method = init.method ?? "GET";
@@ -170,11 +177,12 @@ export function installServer(notes = []) {
 
     if (method === "GET") {
       const wanted = path.includes("archived=1");
-      const answer = server.getStatus >= 400
-        ? reply(server.getStatus, { error: "internal error" })
-        : reply(200, server.notes.filter((note) => note.archived === wanted));
-      if (!server.holdGets) return answer;
-      return new Promise((resolve) => server.held.push(() => resolve(answer)));
+      const status = server.getStatus;
+      const notes = server.notes.filter((note) => note.archived === wanted);
+      return later(server.holdGets, () => {
+        if (status === 0) return Promise.reject(new TypeError("Failed to fetch"));
+        return status >= 400 ? reply(status, { error: "internal error" }) : reply(200, notes);
+      });
     }
     if (method === "POST") {
       if (server.postStatus >= 400) return reply(server.postStatus, { error: "title is required" });
@@ -190,8 +198,12 @@ export function installServer(notes = []) {
     if (method === "PATCH" && /^\/api\/notes\/\d+\/archive$/.test(path)) {
       if (server.patchStatus >= 400) return reply(server.patchStatus, { error: "not found" });
       const note = server.notes.find((candidate) => candidate.id === id);
-      note.archived = body.archived;
-      return reply(200, note);
+      // Applied when the reply goes out: a held PATCH has not reached the
+      // database yet, so a list fetched meanwhile does not see it.
+      return later(server.holdPatches, () => {
+        note.archived = body.archived;
+        return reply(200, note);
+      });
     }
     throw new Error(`unexpected ${method} ${path}`);
   };

@@ -153,6 +153,67 @@ describe("a list that arrives late, or not at all", () => {
     expect(page.body.querySelector("#status").textContent).toBe("Активних нотаток: 1.");
   });
 
+  it("says the network is gone when the newest list cannot be fetched", async () => {
+    const { page, server } = await boot([note(1, "Активна")]);
+    server.getStatus = 0; // fetch rejects, as it does with no connection
+
+    await fire(page.filters.archived, "click", { detail: 1 });
+
+    expect(page.body.querySelector("#status").textContent).toBe("Немає звʼязку з сервером. Спробуйте ще раз.");
+    expect(page.filters.active.getAttribute("aria-pressed")).toBe("true"); // filter put back
+  });
+
+  it("does not let an older request that lost the network announce over a newer one", async () => {
+    const { page, server, list } = await boot([note(1, "Активна"), note(2, "Архівна", true)]);
+    server.holdGets = true;
+    const click = (button) => button.listeners.get("click")[0]({ type: "click", detail: 1 });
+
+    server.getStatus = 0;
+    const toArchive = click(page.filters.archived); // this fetch will reject...
+    server.getStatus = 200;
+    const toActive = click(page.filters.active);
+    server.held[1]();
+    await toActive;
+    server.held[0](); // ...after the newer list is already on screen
+    await toArchive;
+    await settle();
+
+    expect(list.querySelector("strong").textContent).toBe("Активна");
+    expect(page.body.querySelector("#status").textContent).toBe("Активних нотаток: 1.");
+  });
+
+  it("an archive that finishes after the user switched neither moves focus nor announces", async () => {
+    const { page, server, list } = await boot([note(1, "Перша"), note(2, "Друга")]);
+    server.holdPatches = true;
+    // From the keyboard, so a stale reload would also try to move focus.
+    const archiving = list.querySelectorAll("button.archive")[0].listeners.get("click")[0]({ type: "click", detail: 0 });
+
+    page.user.value = "2";
+    await fire(page.user, "change");
+    server.held[0](); // the PATCH answers for a page that is no longer there
+    await archiving;
+    await settle();
+
+    expect(page.body.querySelector("#status").textContent).toBe("");
+    expect(globalThis.document.activeElement).toBe(null);
+  });
+
+  it("reloads, quietly, a list fetched before an in-flight archive landed", async () => {
+    const { page, server, list } = await boot([note(1, "Перша")]);
+    server.holdPatches = true;
+    const archiving = list.querySelectorAll("button.archive")[0].listeners.get("click")[0]({ type: "click", detail: 0 });
+
+    await fire(page.filters.archived, "click", { detail: 1 });
+    expect(list.querySelectorAll("li").length).toBe(0); // fetched before the PATCH landed
+    server.held[0]();
+    await archiving;
+    await settle();
+
+    expect(list.querySelector("strong").textContent).toBe("Перша");
+    expect(page.body.querySelector("#status").textContent).toBe("");
+    expect(globalThis.document.activeElement).toBe(null);
+  });
+
   it("does not report an archive as done when the list failed to reload", async () => {
     const { page, server, list } = await boot([note(1, "Перша")]);
     server.getStatus = 500;

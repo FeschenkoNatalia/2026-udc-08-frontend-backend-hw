@@ -45,16 +45,25 @@ function summary(notes) {
     : `Активних нотаток: ${notes.length}.`;
 }
 
+const OFFLINE = "Немає звʼязку з сервером. Спробуйте ще раз.";
+
 // The one place the network can fail. `fetch` rejects outright when the
 // connection is gone — an unguarded await is an uncaught TypeError and a UI
-// that says nothing at all, which is worse than an error message.
-async function request(path, init = {}) {
+// that says nothing at all, which is worse than an error message. `send` only
+// reports it (null); `request` also says so. load() uses `send` and speaks
+// only once it knows its answer is still the newest one.
+async function send(path, init = {}) {
   try {
     return await fetch(path, { ...init, headers: headers() });
   } catch {
-    announce("Немає звʼязку з сервером. Спробуйте ще раз.");
     return null;
   }
+}
+
+async function request(path, init = {}) {
+  const res = await send(path, init);
+  if (!res) announce(OFFLINE);
+  return res;
 }
 
 // A real <button> with a text label, so the keyboard and the accessibility
@@ -152,13 +161,16 @@ let latestLoad = 0;
 async function load({ focusIndex = null, focusKind = "archive", focus = true } = {}) {
   const ticket = ++latestLoad;
   const view = currentView();
-  const res = await request(`/api/notes?archived=${view === "archived" ? 1 : 0}`);
+  const res = await send(`/api/notes?archived=${view === "archived" ? 1 : 0}`);
   const notes = res?.ok ? await res.json() : null;
   // One check after the last await covers both outcomes: a stale failure must
   // not announce or roll the filter back any more than a stale success may
   // repaint the list.
   if (ticket !== latestLoad) return STALE;
-  if (!res) return null;
+  if (!res) {
+    announce(OFFLINE);
+    return null;
+  }
   if (!res.ok) {
     announce("Не вдалося завантажити нотатки.");
     return null;
@@ -172,10 +184,19 @@ async function load({ focusIndex = null, focusKind = "archive", focus = true } =
 }
 
 async function toggleArchive(note, index, byKeyboard) {
+  // Switching the user or the filter while the PATCH is in flight starts a
+  // newer load, and the page this click belonged to is gone: no focus move and
+  // no announcement belong on the new one. Its list, though, may have been
+  // fetched before the server applied this change — so reload it, quietly.
+  const pageVersion = latestLoad;
   const res = await request(`/api/notes/${note.id}/archive`, {
     method: "PATCH",
     body: JSON.stringify({ archived: !note.archived }),
   });
+  if (pageVersion !== latestLoad) {
+    if (res?.ok) await load();
+    return;
+  }
   if (!res) return;
   if (!res.ok) {
     announce("Не вдалося змінити стан нотатки.");

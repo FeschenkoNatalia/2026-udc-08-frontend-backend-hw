@@ -90,7 +90,7 @@ SQLite, без нормалізації тип у відповіді залеж�
 ## Тести
 
 ```
-cd app && npm test    ->    Test Files 3 passed (3)    Tests 83 passed (83)
+cd app && npm test    ->    Test Files 3 passed (3)    Tests 87 passed (87)
 ```
 
 Дев'ять засіяних тестів не змінені — діф складається лише з додавань.
@@ -103,4 +103,4 @@ cd app && npm test    ->    Test Files 3 passed (3)    Tests 83 passed (83)
 [10](./screenshots/10-api-archive-endpoint.png) ендпоінт архівування: булевий `archived`, без `user_id`, повторний запит ·
 [11](./screenshots/11-api-validation.png) серверна валідація повз інтерфейс: 400 / 405, JSON замість HTML ·
 [12](./screenshots/12-migration-tests.png) тести міграції, включно з відмовою на чужій схемі ·
-[18](./screenshots/18-npm-test-green.png) `npm test` — 83 зелених
+[18](./screenshots/18-npm-test-green.png) `npm test` — 87 зелених

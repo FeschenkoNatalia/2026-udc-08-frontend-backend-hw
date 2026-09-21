@@ -81,7 +81,7 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 
 ## Регресійні тести UI (`app/test/ui.test.js`)
 
-Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 17 тестів у
+Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 21 тест у
 наборі. Без нових залежностей: DOM рівно на ту частину, яку `public/app.js`
 справді чіпає, лежить у `app/test/dom-harness.js`.
 
@@ -102,12 +102,16 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 | `<label for="body">` | `every input has a <label for>, and the page has a <main>` |
 | правило `border-color: color-mix(...)` | `overrides the 1.33:1 border, and does it after the rule that sets it` |
 | збіг `maxlength` із серверним лімітом | `does not let the UI demand more or less than the server does` |
-| перевірка застарілої відповіді в `load()` | `ignores an older list that answers after a newer one` (+1) |
-| `STALE` в обробнику фільтра (застаріле як невдача — відкат) | `ignores an older list that answers after a newer one` (+1) |
+| перевірка застарілої відповіді в `load()` | `ignores an older list that answers after a newer one` (+2) |
+| `STALE` в обробнику фільтра (застаріле як невдача — відкат) | `ignores an older list that answers after a newer one` (+2) |
 | перевірка результату `load()` перед «заархівовано» | `does not report an archive as done when the list failed to reload` |
-| шлях `/archive` у запиті архівування | `archiving from the keyboard keeps focus on an archive control` (+1) |
+| шлях `/archive` у запиті архівування | `archiving from the keyboard keeps focus on an archive control` (+3) |
+| «немає звʼязку» лише після перевірки застарілості | `does not let an older request that lost the network announce over a newer one` |
+| «немає звʼязку» від найновішого завантаження | `says the network is gone when the newest list cannot be fetched` |
+| перевірка «сторінка змінилась» в архівуванні | `an archive that finishes after the user switched neither moves focus nor announces` (+1) |
+| тихе перезавантаження після зміни сторінки | `reloads, quietly, a list fetched before an in-flight archive landed` |
 
-Шістнадцять мутацій — шістнадцять разів червонів саме той тест, який мав.
+Двадцять мутацій — двадцять разів червонів саме той тест, який мав.
 
 ## Скріншоти
 
