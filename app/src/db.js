@@ -22,18 +22,64 @@ export function createDb(file = ":memory:") {
       user_id   INTEGER NOT NULL REFERENCES users(id),
       title     TEXT NOT NULL,
       body      TEXT NOT NULL DEFAULT '',
+      archived  INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
+  // Migration for a notes.db created before the archive feature. ADD COLUMN
+  // is additive: existing rows keep their data and get the default, so no
+  // table is rewritten and nothing is dropped. Guarded by table_info, so it
+  // runs once and a fresh database (which already has the column from the
+  // CREATE TABLE above) skips it. The CHECK is repeated here on purpose —
+  // without it a migrated database would end up with a weaker schema than a
+  // freshly created one, which is the kind of drift nobody notices locally.
+  const archived = db
+    .prepare("PRAGMA table_info(notes)")
+    .all()
+    .find((column) => column.name === "archived");
+
+  if (!archived) {
+    db.exec(
+      "ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1))",
+    );
+  } else if (archived.type.toUpperCase() !== "INTEGER" || archived.notnull !== 1) {
+    // "A column called archived exists" is not "the column we meant". A
+    // database that got one from an earlier iteration can carry TEXT, or allow
+    // NULL — and then `WHERE archived = 0` matches nothing, every note falls
+    // out of both lists, and the app reports an empty archive and an empty
+    // active list with no error anywhere. Refuse to start on a schema we
+    // cannot reason about rather than silently showing the user nothing.
+    // Close first: the caller never receives this handle, so nobody else can
+    // close it, and on Windows an open handle keeps the file locked.
+    db.close();
+    throw new Error(
+      `notes.archived is ${archived.type}${archived.notnull ? "" : " NULL"}, expected INTEGER NOT NULL. ` +
+        "This database predates the current schema and needs migrating by hand.",
+    );
+  }
+
+  // After the column is guaranteed to exist. Both list queries filter on
+  // exactly this pair and order by id, and neither had an index to use — on
+  // three seeded rows a full scan is instant, which is why it is easy to ship.
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_notes_user_archived ON notes (user_id, archived, id)",
+  );
+
+  // All of it or none of it. The guard below keys on the `users` table, which
+  // is also the first thing the seed writes: interrupt it halfway and the next
+  // start sees a non-empty `users`, calls the database seeded, and leaves it
+  // permanently short of Тарас and every note.
   const seeded = db.prepare("SELECT COUNT(*) AS n FROM users").get().n > 0;
   if (!seeded) {
-    db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(1, "Оля");
-    db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(2, "Тарас");
-    const ins = db.prepare("INSERT INTO notes (user_id, title, body) VALUES (?, ?, ?)");
-    ins.run(1, "Список покупок", "хліб, кава");
-    ins.run(1, "Ідеї для відпустки", "Карпати восени");
-    ins.run(2, "Приватна нотатка Тараса", "пароль від сейфа: 1234");
+    db.transaction(() => {
+      db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(1, "Оля");
+      db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(2, "Тарас");
+      const ins = db.prepare("INSERT INTO notes (user_id, title, body) VALUES (?, ?, ?)");
+      ins.run(1, "Список покупок", "хліб, кава");
+      ins.run(1, "Ідеї для відпустки", "Карпати восени");
+      ins.run(2, "Приватна нотатка Тараса", "пароль від сейфа: 1234");
+    })();
   }
 
   return db;

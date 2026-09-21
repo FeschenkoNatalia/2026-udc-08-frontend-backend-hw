@@ -13,3 +13,45 @@ li { border: 1px solid #8884; border-radius: 8px; padding: .7rem .9rem; display:
 li .grow { flex: 1; }
 li strong { display: block; }
 li small { opacity: .65; }
+
+/* Archive feature (Task A).
+   Colours are the system pair Canvas / CanvasText, so the pressed state keeps
+   full contrast in both the light and the dark scheme instead of a palette
+   picked by eye. Sizes keep every control past WCAG 2.2 SC 2.5.8 (24x24). */
+button, select { min-height: 2.25rem; min-inline-size: 2.25rem; }
+:is(button, select, input):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
+.filters { display: flex; gap: .4rem; margin: 1.2rem 0 .4rem; }
+.filter[aria-pressed="true"], .archive[aria-pressed="true"] {
+  background: CanvasText; color: Canvas; border-color: CanvasText;
+}
+
+/* Reserve the line so the list does not jump when a message appears. */
+.status { min-height: 1.4rem; margin: 0 0 .8rem; }
+
+/* The list and the empty state start right under the status line. An empty
+   <ul> still carries the UA's 1em margins, which stacked into dead space
+   above the empty-state text; the grid `gap` spaces the rows instead. */
+#notes, #empty { margin: 0; }
+
+/* Labelled fields that can actually shrink. An <input>'s default
+   min-width:auto is its `size` attribute's intrinsic width, which is what made
+   the row refuse to reflow and pushed the submit button off a 320px screen. */
+form { flex-wrap: wrap; align-items: end; }
+form .field { display: grid; gap: .2rem; flex: 1 1 12rem; min-inline-size: 0; margin: 0; }
+form label { font-size: .85rem; }
+/* border-box, or `inline-size: 100%` means 100% PLUS padding and border: the
+   field overflows its own grid cell and the inputs sit on top of the button. */
+input { box-sizing: border-box; inline-size: 100%; min-inline-size: 0; }
+
+/* #8884 borders resolve to 1.33:1 against the page — an empty input is then a
+   control with no visible boundary at all (WCAG 2.2 SC 1.4.11 wants 3:1). */
+input, button, li { border-color: color-mix(in srgb, CanvasText 45%, Canvas); }
+
+li { flex-wrap: wrap; }
+li .head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+li .grow > span, li .grow > time { display: block; }
+li .badge {
+  border: 1px solid CanvasText; border-radius: 999px;
+  padding: 0 .5em; font-size: .78rem; font-weight: 400; white-space: nowrap;
+}

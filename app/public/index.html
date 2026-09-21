@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Нотатки — UDC WS8</title>
+    <!-- No icon to serve: say so, rather than leave a 404 in every console. -->
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -18,14 +20,35 @@
       </label>
     </header>
 
-    <form id="new-note">
-      <input id="title" placeholder="Заголовок" required />
-      <input id="body" placeholder="Текст" />
-      <button type="submit">Додати</button>
-    </form>
+    <main>
+      <form id="new-note">
+        <p class="field">
+          <label for="title">Заголовок</label>
+          <input id="title" name="title" maxlength="200" required />
+        </p>
+        <p class="field">
+          <label for="body">Текст</label>
+          <input id="body" name="body" maxlength="10000" />
+        </p>
+        <button type="submit">Додати</button>
+      </form>
 
-    <ul id="notes"></ul>
-    <p id="empty" hidden>Нотаток поки немає.</p>
+      <div class="filters" role="group" aria-label="Які нотатки показувати">
+        <button type="button" class="filter" data-view="active" aria-pressed="true">
+          Активні
+        </button>
+        <button type="button" class="filter" data-view="archived" aria-pressed="false">
+          Архів
+        </button>
+      </div>
+
+      <p id="status" role="status" class="status"></p>
+
+      <ul id="notes"></ul>
+      <!-- Its own live region: the empty state has to reach a screen reader
+           when the list empties, and #status must not repeat it on screen. -->
+      <p id="empty" role="status" hidden>Активних нотаток поки немає.</p>
+    </main>
 
     <script type="module" src="./app.js"></script>
   </body>
