@@ -150,6 +150,11 @@ export function installServer(notes = []) {
     postStatus: 201,
     deleteStatus: 204,
     patchStatus: 200,
+    getStatus: 200,
+    // With holdGets on, list replies wait in `held` until the test releases
+    // them — in whatever order it wants, which is how a race is reproduced.
+    holdGets: false,
+    held: [],
   };
 
   globalThis.fetch = async (path, init = {}) => {
@@ -165,7 +170,11 @@ export function installServer(notes = []) {
 
     if (method === "GET") {
       const wanted = path.includes("archived=1");
-      return reply(200, server.notes.filter((note) => note.archived === wanted));
+      const answer = server.getStatus >= 400
+        ? reply(server.getStatus, { error: "internal error" })
+        : reply(200, server.notes.filter((note) => note.archived === wanted));
+      if (!server.holdGets) return answer;
+      return new Promise((resolve) => server.held.push(() => resolve(answer)));
     }
     if (method === "POST") {
       if (server.postStatus >= 400) return reply(server.postStatus, { error: "title is required" });
@@ -178,7 +187,7 @@ export function installServer(notes = []) {
       server.notes = server.notes.filter((note) => note.id !== id);
       return reply(204, null);
     }
-    if (method === "PATCH") {
+    if (method === "PATCH" && /^\/api\/notes\/\d+\/archive$/.test(path)) {
       if (server.patchStatus >= 400) return reply(server.patchStatus, { error: "not found" });
       const note = server.notes.find((candidate) => candidate.id === id);
       note.archived = body.archived;

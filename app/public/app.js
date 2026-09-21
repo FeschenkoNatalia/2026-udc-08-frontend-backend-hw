@@ -142,17 +142,30 @@ function restoreFocus(index, kind) {
   (target ?? filters.find((filter) => filter.dataset.view === currentView())).focus();
 }
 
+// Responses can land out of order: switch the filter or the user quickly and
+// the earlier request may answer last. Only the newest load may touch the
+// page. An older one returns STALE rather than null, so its caller neither
+// rolls the filter back nor announces a result that is no longer on screen.
+const STALE = Symbol("stale load");
+let latestLoad = 0;
+
 async function load({ focusIndex = null, focusKind = "archive", focus = true } = {}) {
-  const res = await request(`/api/notes?archived=${showArchived ? 1 : 0}`);
+  const ticket = ++latestLoad;
+  const view = currentView();
+  const res = await request(`/api/notes?archived=${view === "archived" ? 1 : 0}`);
+  const notes = res?.ok ? await res.json() : null;
+  // One check after the last await covers both outcomes: a stale failure must
+  // not announce or roll the filter back any more than a stale success may
+  // repaint the list.
+  if (ticket !== latestLoad) return STALE;
   if (!res) return null;
   if (!res.ok) {
     announce("Не вдалося завантажити нотатки.");
     return null;
   }
-  const notes = await res.json();
 
   list.replaceChildren(...notes.map(noteItem));
-  empty.textContent = EMPTY_TEXT[currentView()];
+  empty.textContent = EMPTY_TEXT[view];
   empty.hidden = notes.length > 0;
   if (focusIndex !== null && focus) restoreFocus(focusIndex, focusKind);
   return notes;
@@ -170,7 +183,10 @@ async function toggleArchive(note, index, byKeyboard) {
   }
 
   const updated = await res.json();
-  await load({ focusIndex: index, focusKind: "archive", focus: byKeyboard });
+  const notes = await load({ focusIndex: index, focusKind: "archive", focus: byKeyboard });
+  // A failed reload has already said so; a stale one was overtaken. Either
+  // way a success message here would describe a list that is not on screen.
+  if (!Array.isArray(notes)) return;
   // If the list just emptied, #empty announces that itself.
   announce(
     updated.archived
@@ -189,6 +205,7 @@ for (const button of filters) {
     syncFilters();
 
     const notes = await load();
+    if (notes === STALE) return; // a newer click owns the page now
     if (!notes) {
       // The list never arrived. Put the filter back rather than leaving the
       // UI claiming to show an archive it does not have.

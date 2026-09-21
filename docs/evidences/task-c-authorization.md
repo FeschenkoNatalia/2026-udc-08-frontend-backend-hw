@@ -47,7 +47,7 @@ expect(JSON.stringify(res.body)).not.toContain("пароль від сейфа")
     → expected 404 "Not Found", got 200 "OK"
 × cross-user refusals ship no data > a note that does not exist is
   indistinguishable from someone else's
-Tests  2 failed | 76 passed (78)
+Tests  2 failed | 81 passed (83)
 ```
 
 **Дев'ять засіяних тестів були зелені й з відкритою дірою.**
@@ -91,8 +91,8 @@ GET /api/notes  x-user-id: 0x2   -> 401
 
 ## 7. Кожен новий тест перевірено на червоне
 
-Guard прибирався по одному в пісочниці — одинадцять мутацій, і щоразу червонів
-саме той тест, який мав:
+Guard прибирався по одному в пісочниці — чотирнадцять мутацій, і щоразу
+червонів саме той тест, який мав:
 
 | Прибрано | Почервонів |
 |---|---|
@@ -105,8 +105,11 @@ Guard прибирався по одному в пісочниці — один�
 | канонічний розбір `id` | `refuses non-canonical spellings of a user id` |
 | JSON-обробник помилок | `answers a malformed JSON body with JSON, ...` |
 | catch-all гілка JSON-обробника (`next(err)` замість JSON 500) | `answers an unexpected failure with JSON, not a stack trace` |
-| перевірка `type`/`notnull` в охоронці міграції | `refuses to start on archived TEXT, ...` (+1) |
-| `db.close()` перед відмовою міграції | обидва тести на «дрейфові» бази — на Windows `rmSync` падає з `EPERM` |
+| перевірка `type` в охоронці міграції | `refuses to start on archived TEXT, ...` |
+| перевірка `notnull` в охоронці міграції | `refuses to start on archived nullable INTEGER, ...` |
+| перевірка `DEFAULT 0` в охоронці міграції | `refuses to start on archived INTEGER NOT NULL without DEFAULT, ...` |
+| перевірка `CHECK` в охоронці міграції | `refuses to start on archived INTEGER NOT NULL DEFAULT 0 without CHECK, ...` |
+| `db.close()` перед відмовою міграції | усі чотири тести на «дрейфові» бази — на Windows `rmSync` падає з `EPERM` |
 
 Окремо: маршрути були закриті лише **позицією** в ланцюжку middleware —
 підставний маршрут вище за `app.use("/api", currentUser)` віддавав чужу нотатку
@@ -122,5 +125,5 @@ Guard прибирався по одному в пісочниці — один�
 [14](./screenshots/14-cross-user-writes.png) PATCH / DELETE / POST чужим користувачем — відмова, дані Тараса без змін ·
 [15](./screenshots/15-archive-read-path.png) архів Олі не бачить архіву Тараса ·
 [16](./screenshots/16-authentication.png) без заголовка, `999`, `0x2` → 401 ·
-[17](./screenshots/17-test-red-with-hole.png) діру повернуто в копії `app/` — два тести червоні; правку прибрано — 78 зелених ·
+[17](./screenshots/17-test-red-with-hole.png) діру повернуто в копії `app/` — два тести червоні; правку прибрано — 83 зелених ·
 [07](./screenshots/07-other-user.png) в інтерфейсі Тарас бачить лише своє

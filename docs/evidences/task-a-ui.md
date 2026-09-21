@@ -81,7 +81,7 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 
 ## Регресійні тести UI (`app/test/ui.test.js`)
 
-Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 14 тестів у
+Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 17 тестів у
 наборі. Без нових залежностей: DOM рівно на ту частину, яку `public/app.js`
 справді чіпає, лежить у `app/test/dom-harness.js`.
 
@@ -102,8 +102,12 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 | `<label for="body">` | `every input has a <label for>, and the page has a <main>` |
 | правило `border-color: color-mix(...)` | `overrides the 1.33:1 border, and does it after the rule that sets it` |
 | збіг `maxlength` із серверним лімітом | `does not let the UI demand more or less than the server does` |
+| перевірка застарілої відповіді в `load()` | `ignores an older list that answers after a newer one` (+1) |
+| `STALE` в обробнику фільтра (застаріле як невдача — відкат) | `ignores an older list that answers after a newer one` (+1) |
+| перевірка результату `load()` перед «заархівовано» | `does not report an archive as done when the list failed to reload` |
+| шлях `/archive` у запиті архівування | `archiving from the keyboard keeps focus on an archive control` (+1) |
 
-Дванадцять мутацій — дванадцять разів червонів саме той тест, який мав.
+Шістнадцять мутацій — шістнадцять разів червонів саме той тест, який мав.
 
 ## Скріншоти
 

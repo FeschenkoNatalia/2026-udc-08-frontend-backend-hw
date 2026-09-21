@@ -113,6 +113,56 @@ describe("focus after the row you were standing in disappears", () => {
   });
 });
 
+describe("a list that arrives late, or not at all", () => {
+  it("ignores an older list that answers after a newer one", async () => {
+    const { page, server, list } = await boot([note(1, "Активна"), note(2, "Архівна", true)]);
+    server.holdGets = true;
+    // Handlers are called directly: fire() would wait on a reply that is held.
+    const click = (button) => button.listeners.get("click")[0]({ type: "click", detail: 1 });
+
+    const toArchive = click(page.filters.archived);
+    const toActive = click(page.filters.active);
+    server.held[1](); // the newer request answers first...
+    await toActive;
+    server.held[0](); // ...and the older one last
+    await toArchive;
+    await settle();
+
+    expect(list.querySelector("strong").textContent).toBe("Активна");
+    expect(page.filters.active.getAttribute("aria-pressed")).toBe("true");
+    expect(page.body.querySelector("#status").textContent).toBe("Активних нотаток: 1.");
+  });
+
+  it("does not let an older request that failed roll back or report over a newer one", async () => {
+    const { page, server, list } = await boot([note(1, "Активна"), note(2, "Архівна", true)]);
+    server.holdGets = true;
+    const click = (button) => button.listeners.get("click")[0]({ type: "click", detail: 1 });
+
+    server.getStatus = 500;
+    const toArchive = click(page.filters.archived); // this one will fail...
+    server.getStatus = 200;
+    const toActive = click(page.filters.active);
+    server.held[1]();
+    await toActive;
+    server.held[0](); // ...and its failure lands after the newer success
+    await toArchive;
+    await settle();
+
+    expect(list.querySelector("strong").textContent).toBe("Активна");
+    expect(page.filters.active.getAttribute("aria-pressed")).toBe("true");
+    expect(page.body.querySelector("#status").textContent).toBe("Активних нотаток: 1.");
+  });
+
+  it("does not report an archive as done when the list failed to reload", async () => {
+    const { page, server, list } = await boot([note(1, "Перша")]);
+    server.getStatus = 500;
+
+    await fire(list.querySelectorAll("button.archive")[0], "click", { detail: 1 });
+
+    expect(page.body.querySelector("#status").textContent).toBe("Не вдалося завантажити нотатки.");
+  });
+});
+
 describe("created_at reaches the page as a localised <time>", () => {
   it("anchors SQLite's UTC timestamp instead of printing it raw", async () => {
     const { list } = await boot([note(1, "Перша")]);

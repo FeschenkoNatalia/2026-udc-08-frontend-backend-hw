@@ -245,8 +245,14 @@ describe("archive migration preserves the whole table", () => {
 // nothing, leaving both lists empty with no error anywhere.
 describe("archive migration refuses a column it did not create", () => {
   const drifted = [
-    ["TEXT", "archived TEXT NOT NULL DEFAULT '0'"],
-    ["nullable INTEGER", "archived INTEGER DEFAULT 0"],
+    // Each fixture breaks exactly one part of the contract, so each check in
+    // the guard has a test of its own rather than riding on another.
+    ["TEXT", "archived TEXT NOT NULL DEFAULT 0 CHECK (archived IN (0, 1))"],
+    ["nullable INTEGER", "archived INTEGER DEFAULT 0 CHECK (archived IN (0, 1))"],
+    // Starts, then every POST fails NOT NULL: the INSERT never names the column.
+    ["INTEGER NOT NULL without DEFAULT", "archived INTEGER NOT NULL CHECK (archived IN (0, 1))"],
+    // Starts and works, but lets any integer in.
+    ["INTEGER NOT NULL DEFAULT 0 without CHECK", "archived INTEGER NOT NULL DEFAULT 0"],
   ];
 
   drifted.forEach(([label, column], index) => {
@@ -269,7 +275,7 @@ describe("archive migration refuses a column it did not create", () => {
         `);
         before.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(1, "Оля");
         before
-          .prepare("INSERT INTO notes (user_id, title) VALUES (?, ?)")
+          .prepare("INSERT INTO notes (user_id, title, archived) VALUES (?, ?, 0)")
           .run(1, "Нотатка з дрейфової бази");
         before.close();
 

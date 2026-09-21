@@ -39,22 +39,42 @@ export function createDb(file = ":memory:") {
     .all()
     .find((column) => column.name === "archived");
 
+  // table_info reports type, NOT NULL and DEFAULT but not CHECK; that one is
+  // only visible in the table's own CREATE statement.
+  const notesSql = archived
+    ? db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notes'").get().sql
+    : "";
+  const hasCheck = /CHECK\s*\(\s*archived\s+IN\s*\(\s*0\s*,\s*1\s*\)\s*\)/i.test(notesSql);
+
   if (!archived) {
     db.exec(
       "ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1))",
     );
-  } else if (archived.type.toUpperCase() !== "INTEGER" || archived.notnull !== 1) {
+  } else if (
+    archived.type.toUpperCase() !== "INTEGER" ||
+    archived.notnull !== 1 ||
+    archived.dflt_value !== "0" ||
+    !hasCheck
+  ) {
     // "A column called archived exists" is not "the column we meant". A
     // database that got one from an earlier iteration can carry TEXT, or allow
     // NULL — and then `WHERE archived = 0` matches nothing, every note falls
     // out of both lists, and the app reports an empty archive and an empty
-    // active list with no error anywhere. Refuse to start on a schema we
-    // cannot reason about rather than silently showing the user nothing.
+    // active list with no error anywhere. Without DEFAULT 0 every insert fails
+    // NOT NULL (the INSERT never names the column); without the CHECK any
+    // integer gets in. Refuse to start on a schema we cannot reason about
+    // rather than silently showing the user nothing or failing on first write.
     // Close first: the caller never receives this handle, so nobody else can
     // close it, and on Windows an open handle keeps the file locked.
     db.close();
+    const found = [
+      archived.type,
+      archived.notnull ? "NOT NULL" : "NULL",
+      archived.dflt_value === null ? "no DEFAULT" : `DEFAULT ${archived.dflt_value}`,
+      hasCheck ? "CHECK" : "no CHECK",
+    ].join(" ");
     throw new Error(
-      `notes.archived is ${archived.type}${archived.notnull ? "" : " NULL"}, expected INTEGER NOT NULL. ` +
+      `notes.archived is ${found}, expected INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)). ` +
         "This database predates the current schema and needs migrating by hand.",
     );
   }

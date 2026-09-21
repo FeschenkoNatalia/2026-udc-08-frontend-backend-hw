@@ -18,12 +18,14 @@ ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0 CHECK (archived
 - `CHECK` продубльовано навмисно — інакше мігрована база мала б **слабшу**
   схему, ніж свіжа. Зв'язується справді: `UPDATE notes SET archived = 7`
   падає з `CHECK constraint failed`;
-- охоронець перевіряє `type` і `notnull`, а не лише назву: база з
-  `archived TEXT` раніше проходила мовчки, і обидва списки віддавали `200 []`.
-  Тепер старт відмовляє — це тримають два тести на «дрейфові» бази (`TEXT` і
-  `INTEGER` без `NOT NULL`);
-- сід загорнуто в `db.transaction(...)`: обрив посеред нього лишав би базу
-  без Тараса назавжди.
+- охоронець перевіряє весь контракт колонки — `type`, `notnull`, `DEFAULT 0` і
+  `CHECK`, а не лише назву: база з `archived TEXT` раніше проходила мовчки, і
+  обидва списки віддавали `200 []`. Тепер старт відмовляє — це тримають чотири
+  тести на «дрейфові» бази (`TEXT`, `INTEGER` без `NOT NULL`, без `DEFAULT`, без
+  `CHECK`);
+- сід загорнуто в `db.transaction(...)`: без транзакції обрив посеред сідування
+  лишив би базу без Тараса назавжди, а з нею сід або виконується повністю, або
+  не зберігається жоден його запис.
 
 ```
 EXPLAIN QUERY PLAN SELECT id FROM notes WHERE user_id = 1 AND archived = 0 ORDER BY id
@@ -88,7 +90,7 @@ SQLite, без нормалізації тип у відповіді залеж�
 ## Тести
 
 ```
-cd app && npm test    ->    Test Files 3 passed (3)    Tests 78 passed (78)
+cd app && npm test    ->    Test Files 3 passed (3)    Tests 83 passed (83)
 ```
 
 Дев'ять засіяних тестів не змінені — діф складається лише з додавань.
@@ -101,4 +103,4 @@ cd app && npm test    ->    Test Files 3 passed (3)    Tests 78 passed (78)
 [10](./screenshots/10-api-archive-endpoint.png) ендпоінт архівування: булевий `archived`, без `user_id`, повторний запит ·
 [11](./screenshots/11-api-validation.png) серверна валідація повз інтерфейс: 400 / 405, JSON замість HTML ·
 [12](./screenshots/12-migration-tests.png) тести міграції, включно з відмовою на чужій схемі ·
-[18](./screenshots/18-npm-test-green.png) `npm test` — 78 зелених
+[18](./screenshots/18-npm-test-green.png) `npm test` — 83 зелених
