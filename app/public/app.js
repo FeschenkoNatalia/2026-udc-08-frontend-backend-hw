@@ -50,8 +50,8 @@ const OFFLINE = "Немає звʼязку з сервером. Спробуйт
 // The one place the network can fail. `fetch` rejects outright when the
 // connection is gone — an unguarded await is an uncaught TypeError and a UI
 // that says nothing at all, which is worse than an error message. `send` only
-// reports it (null); `request` also says so. load() uses `send` and speaks
-// only once it knows its answer is still the newest one.
+// reports it (null); `request` also says so. load() and toggleArchive() use
+// `send` and speak only once they know their page is still the one on screen.
 async function send(path, init = {}) {
   try {
     return await fetch(path, { ...init, headers: headers() });
@@ -189,7 +189,7 @@ async function toggleArchive(note, index, byKeyboard) {
   // no announcement belong on the new one. Its list, though, may have been
   // fetched before the server applied this change — so reload it, quietly.
   const pageVersion = latestLoad;
-  const res = await request(`/api/notes/${note.id}/archive`, {
+  const res = await send(`/api/notes/${note.id}/archive`, {
     method: "PATCH",
     body: JSON.stringify({ archived: !note.archived }),
   });
@@ -197,7 +197,10 @@ async function toggleArchive(note, index, byKeyboard) {
     if (res?.ok) await load();
     return;
   }
-  if (!res) return;
+  if (!res) {
+    announce(OFFLINE);
+    return;
+  }
   if (!res.ok) {
     announce("Не вдалося змінити стан нотатки.");
     return;

@@ -149,8 +149,8 @@ export function installServer(notes = []) {
     calls: [],
     postStatus: 201,
     deleteStatus: 204,
-    patchStatus: 200,
     // 0 stands for "the network is gone": fetch rejects instead of answering.
+    patchStatus: 200,
     getStatus: 200,
     // With holdGets / holdPatches on, those replies wait in `held` until the
     // test releases them — in whatever order it wants, which is how a race is
@@ -197,10 +197,12 @@ export function installServer(notes = []) {
     }
     if (method === "PATCH" && /^\/api\/notes\/\d+\/archive$/.test(path)) {
       if (server.patchStatus >= 400) return reply(server.patchStatus, { error: "not found" });
+      const status = server.patchStatus;
       const note = server.notes.find((candidate) => candidate.id === id);
       // Applied when the reply goes out: a held PATCH has not reached the
       // database yet, so a list fetched meanwhile does not see it.
       return later(server.holdPatches, () => {
+        if (status === 0) return Promise.reject(new TypeError("Failed to fetch"));
         note.archived = body.archived;
         return reply(200, note);
       });

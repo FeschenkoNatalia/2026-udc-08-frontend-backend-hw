@@ -214,6 +214,31 @@ describe("a list that arrives late, or not at all", () => {
     expect(globalThis.document.activeElement).toBe(null);
   });
 
+  it("an archive that lost the network after the user switched does not say so on the new page", async () => {
+    const { page, server, list } = await boot([note(1, "Перша")]);
+    server.holdPatches = true;
+    server.patchStatus = 0; // this PATCH will reject...
+    const archiving = list.querySelectorAll("button.archive")[0].listeners.get("click")[0]({ type: "click", detail: 0 });
+
+    page.user.value = "2";
+    await fire(page.user, "change");
+    server.held[0](); // ...after the page it belonged to is gone
+    await archiving;
+    await settle();
+
+    expect(page.body.querySelector("#status").textContent).toBe("");
+  });
+
+  it("says the network is gone when an archive on the current page cannot reach the server", async () => {
+    const { page, server, list } = await boot([note(1, "Перша")]);
+    server.patchStatus = 0;
+
+    await fire(list.querySelectorAll("button.archive")[0], "click", { detail: 1 });
+
+    expect(page.body.querySelector("#status").textContent).toBe("Немає звʼязку з сервером. Спробуйте ще раз.");
+    expect(list.querySelector("strong").textContent).toBe("Перша"); // still in the active list
+  });
+
   it("does not report an archive as done when the list failed to reload", async () => {
     const { page, server, list } = await boot([note(1, "Перша")]);
     server.getStatus = 500;

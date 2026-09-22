@@ -81,7 +81,7 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 
 ## Регресійні тести UI (`app/test/ui.test.js`)
 
-Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 21 тест у
+Прохід у браузері — одноразовий, тож те, що він виміряв, тримають 23 тести у
 наборі. Без нових залежностей: DOM рівно на ту частину, яку `public/app.js`
 справді чіпає, лежить у `app/test/dom-harness.js`.
 
@@ -105,13 +105,15 @@ XSS окремо: `<img src=x onerror="window.__XSS=1">` рендериться 
 | перевірка застарілої відповіді в `load()` | `ignores an older list that answers after a newer one` (+2) |
 | `STALE` в обробнику фільтра (застаріле як невдача — відкат) | `ignores an older list that answers after a newer one` (+2) |
 | перевірка результату `load()` перед «заархівовано» | `does not report an archive as done when the list failed to reload` |
-| шлях `/archive` у запиті архівування | `archiving from the keyboard keeps focus on an archive control` (+3) |
+| шлях `/archive` у запиті архівування | `archiving from the keyboard keeps focus on an archive control` (+4) |
 | «немає звʼязку» лише після перевірки застарілості | `does not let an older request that lost the network announce over a newer one` |
 | «немає звʼязку» від найновішого завантаження | `says the network is gone when the newest list cannot be fetched` |
-| перевірка «сторінка змінилась» в архівуванні | `an archive that finishes after the user switched neither moves focus nor announces` (+1) |
+| перевірка «сторінка змінилась» в архівуванні | `an archive that finishes after the user switched neither moves focus nor announces` (+2) |
 | тихе перезавантаження після зміни сторінки | `reloads, quietly, a list fetched before an in-flight archive landed` |
+| «немає звʼязку» в архівуванні лише після перевірки «сторінка змінилась» | `an archive that lost the network after the user switched does not say so on the new page` |
+| «немає звʼязку» від архівування на поточній сторінці | `says the network is gone when an archive on the current page cannot reach the server` |
 
-Двадцять мутацій — двадцять разів червонів саме той тест, який мав.
+Двадцять дві мутації — двадцять два рази червонів саме той тест, який мав.
 
 ## Скріншоти
 
